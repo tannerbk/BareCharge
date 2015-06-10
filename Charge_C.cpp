@@ -6,22 +6,17 @@
 // Root Libraries
 #include <TFile.h>
 #include <TMath.h>
-#include <TRandom2.h>
-#include <TMathBase.h>
 #include <TTree.h>
 #include <TSystem.h>
 #include <TCanvas.h>
-#include <TMultiGraph.h>
 #include <TGraphErrors.h>
 #include <TH1.h>
 #include <TF1.h>
 #include <TH2.h>
 #include <TROOT.h>
 #include <TPaveStats.h>
-#include <TProfile.h>
 #include <TStyle.h>
 #include <TLine.h>
-#include <TGaxis.h>
 
 // HDF5 Library
 #include "H5Cpp.h"
@@ -58,7 +53,8 @@ int main (int argc, char* argv[])
 {
   unsigned long window_width = atoi(argv[3]);
   const int termination_ohms = 50; 
-
+  const unsigned long length_trace = 10002; // length of trace 
+ 
   try
     {
 
@@ -77,8 +73,8 @@ int main (int argc, char* argv[])
       //Define ROOT histograms here, the variable names are confusing right now, look at the descriptions 
       TH1F *pedestals = new TH1F("Pedestal","",5000,0.5,2); 
       TH1F *variances = new TH1F("Variance over Pedestal Window","",5000,-0.1,1.0);
-      TH1F *charges_signal = new TH1F("Charge PMT","",100000,-150,300);   
-      TH1F *average_waveform = new TH1F("Average Waveform","", 5002, 0, 500); 
+      TH1F *charges_signal = new TH1F("Charge PMT","",500,-1.0,10.0);   
+      TH1F *average_waveform = new TH1F("Average Waveform","", length_trace, 0, length_trace*0.1); 
 	          
       unsigned long i; 
       unsigned long j; 
@@ -87,7 +83,6 @@ int main (int argc, char* argv[])
       H5File file; 
       DataSet dataset;
 
-      const unsigned long length_trace = 10002; // length of trace  
       float waveform_voltage[length_trace] = {0};
 
       ifstream ifs ( argv[1] , ifstream::in ); // Open File List Stream
@@ -146,7 +141,7 @@ int main (int argc, char* argv[])
 	    
 	  // no variance cut, ie not cutting dark pulses from pedestal window. variance cut could be put in here if there is a concern about dark pulses.  
 
-	  for(i = 900; i < window_width + 1200 ; i++){ // signal window, hardcoded
+	  for(i = 900; i < 1200 ; i++){ // signal window, hardcoded
 	    signal_voltage = ((float)datacluster->data_out[i]*dy-pedestal);
 	    ncharge = ncharge+(signal_voltage*((-1000.0*dx*1e9)/termination_ohms)); // charge 
 	  }  
