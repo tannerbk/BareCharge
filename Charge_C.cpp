@@ -53,7 +53,7 @@ int main (int argc, char* argv[])
 {
   unsigned long window_width = atoi(argv[3]);
   const int termination_ohms = 50; 
-  const unsigned long length_trace = 10002; // length of trace 
+  const unsigned long length_trace = 5002; // length of trace 
  
   try
     {
@@ -72,9 +72,9 @@ int main (int argc, char* argv[])
 
       //Define ROOT histograms here, the variable names are confusing right now, look at the descriptions 
       TH1F *pedestals = new TH1F("Pedestal","",5000,0.5,2); 
-      TH1F *variances = new TH1F("Variance over Pedestal Window","",5000,-0.1,1.0);
-      TH1F *charges_signal = new TH1F("Charge PMT","",500,-1.0,10.0);   
-      TH1F *average_waveform = new TH1F("Average Waveform","", length_trace, 0, length_trace*0.1); 
+      TH1F *variances = new TH1F("Variance","",5000,-0.1,1.0);
+      TH1F *charges_signal = new TH1F("Charge","",5000,-1.0,40.0);   
+      TH1F *average_waveform = new TH1F("Average_Waveform","", length_trace, 0, length_trace*0.1); 
 	          
       unsigned long i; 
       unsigned long j; 
@@ -93,7 +93,7 @@ int main (int argc, char* argv[])
 	cout<<filename<<endl;
 	file.openFile(filename, H5F_ACC_RDONLY); //Open HDF5 File 
 	ifs >> filename;
-	dataset = file.openDataSet("channel2"); // Open HDF5 DataSet, Channel 2
+	dataset = file.openDataSet("channel3"); // Open HDF5 DataSet, Channel 2
 
 	// Reading in Attributes
 	horiz_interval = dataset.openAttribute("horiz_interval");
@@ -129,7 +129,7 @@ int main (int argc, char* argv[])
 	  cout.flush(); 
 
 	  Read_Trace(datacluster,j); 	    	    
-	  pedestal = TMath::Mean (window_width, &datacluster->data_out[window_width])*dy; // calculates pedestal 
+	  pedestal = TMath::Mean (window_width, datacluster->data_out)*dy; // calculates pedestal 
 	  
 	  ncharge = 0.0;  
 	  variance = 0.0; 	   
@@ -141,7 +141,7 @@ int main (int argc, char* argv[])
 	    
 	  // no variance cut, ie not cutting dark pulses from pedestal window. variance cut could be put in here if there is a concern about dark pulses.  
 
-	  for(i = 900; i < 1200 ; i++){ // signal window, hardcoded
+	  for(i = window_width; i < window_width + 300 ; i++){ // signal window, hardcoded
 	    signal_voltage = ((float)datacluster->data_out[i]*dy-pedestal);
 	    ncharge = ncharge+(signal_voltage*((-1000.0*dx*1e9)/termination_ohms)); // charge 
 	  }  
