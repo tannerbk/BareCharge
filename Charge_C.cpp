@@ -54,7 +54,8 @@ int main (int argc, char* argv[])
   unsigned long window_width = atoi(argv[3]);
   const int termination_ohms = 50; 
   const unsigned long length_trace = 5002; // length of trace 
- 
+  vector<string> channels = {"channel2"}; 
+  
   try
     {
 
@@ -70,7 +71,6 @@ int main (int argc, char* argv[])
       double dx,dy,xoffset,yoffset;
       double Vmin, Vmax;
 
-      //Define ROOT histograms here, the variable names are confusing right now, look at the descriptions 
       TH1F *pedestals = new TH1F("Pedestal","",5000,0.5,2); 
       TH1F *variances = new TH1F("Variance","",5000,-0.1,1.0);
       TH1F *charges_signal = new TH1F("Charge","",5000,-1.0,40.0);   
@@ -81,87 +81,88 @@ int main (int argc, char* argv[])
       unsigned int window_count = 0.0; // counts number of traces 
       string filename; 
       H5File file; 
-      DataSet dataset;
-
+      DataSet dataset;   
       float waveform_voltage[length_trace] = {0};
 
-      ifstream ifs ( argv[1] , ifstream::in ); // Open File List Stream
-      ifs >> filename;
+      for(vector<string>::const_iterator str = channels.begin(); str != channels.end(); ++str){
 
-      while (ifs.good()){ // While Stream Is Open, Analyze New Files.
+        ifstream ifs ( argv[1] , ifstream::in ); // Open File List Stream
+        ifs >> filename;
 
-	cout<<filename<<endl;
-	file.openFile(filename, H5F_ACC_RDONLY); //Open HDF5 File 
-	ifs >> filename;
-	dataset = file.openDataSet("channel3"); // Open HDF5 DataSet, Channel 2
+        while (ifs.good()){ // While Stream Is Open, Analyze New Files.
 
-	// Reading in Attributes
-	horiz_interval = dataset.openAttribute("horiz_interval");
-	vertical_gain = dataset.openAttribute("vertical_gain");
-	horiz_offset = dataset.openAttribute("horiz_offset");
-	vertical_offset = dataset.openAttribute("vertical_offset");
-	max_value = dataset.openAttribute("max_value");
-	min_value = dataset.openAttribute("min_value");
+	  cout<<filename<<endl;
+	  file.openFile(filename, H5F_ACC_RDONLY); //Open HDF5 File 
+	  ifs >> filename;
+	  dataset = file.openDataSet(*str); // Open HDF5 DataSet 
+          cout << *str << endl;
+           
+	  // Reading in Attributes
+	  horiz_interval = dataset.openAttribute("horiz_interval");
+	  vertical_gain = dataset.openAttribute("vertical_gain");
+	  horiz_offset = dataset.openAttribute("horiz_offset");
+	  vertical_offset = dataset.openAttribute("vertical_offset");
+	  max_value = dataset.openAttribute("max_value");
+	  min_value = dataset.openAttribute("min_value");
 
-	horiz_interval.read(PredType::NATIVE_DOUBLE, &dx);
-	vertical_gain.read(PredType::NATIVE_DOUBLE, &dy);
-	horiz_offset.read(PredType::NATIVE_DOUBLE, &xoffset);
-	vertical_offset.read(PredType::NATIVE_DOUBLE, &yoffset);
-	max_value.read(PredType::NATIVE_DOUBLE, &Vmax);
-	min_value.read(PredType::NATIVE_DOUBLE, &Vmin);
+	  horiz_interval.read(PredType::NATIVE_DOUBLE, &dx);
+	  vertical_gain.read(PredType::NATIVE_DOUBLE, &dy);
+	  horiz_offset.read(PredType::NATIVE_DOUBLE, &xoffset);
+	  vertical_offset.read(PredType::NATIVE_DOUBLE, &yoffset);
+	  max_value.read(PredType::NATIVE_DOUBLE, &Vmax);
+	  min_value.read(PredType::NATIVE_DOUBLE, &Vmin);
 	  
-	DataCluster * datacluster = Init_Data(&dataset); //initialize datacluser
+	  DataCluster * datacluster = Init_Data(&dataset); //initialize datacluser
 	
-	unsigned long window_length = datacluster->trace_length; 
-	cout << " The time bin width is " << dx  << ", the trace length is " << window_length << ", the verticle resolution is " << dy << "." << endl;
+	  unsigned long window_length = datacluster->trace_length; 
+	  cout << " The time bin width is " << dx  << ", the trace length is " << window_length << ", the verticle resolution is " << dy << "." << endl;
 		 
-	double ncharge; 
-	float voltage = 0.0; 
-	float signal_voltage = 0.0; 
-	float window_voltage = 0.0; 
-	float variance; 
-	float pedestal = 0.0; 
+          // Initialize analysis variables 
+	  double ncharge; 
+	  float voltage = 0.0; 
+	  float signal_voltage = 0.0; 
+	  float window_voltage = 0.0; 
+	  float variance; 
+	  float pedestal = 0.0; 
 
-	for (j = 0; j < datacluster->n_traces; j++){ // loop over all the traces 
+	  for (j = 0; j < datacluster->n_traces; j++){ // loop over all the traces 
 
-	  cout << "Analyzing trace " << j+1 << " out of " 
-	       <<datacluster->n_traces<< " total traces " <<'\r';
-	  cout.flush(); 
+	    cout << "Analyzing trace " << j+1 << " out of " 
+	         <<datacluster->n_traces<< " total traces " <<'\r';
+	    cout.flush(); 
 
-	  Read_Trace(datacluster,j); 	    	    
-	  pedestal = TMath::Mean (window_width, datacluster->data_out)*dy; // calculates pedestal 
+	    Read_Trace(datacluster,j); 	    	    
+	    pedestal = TMath::Mean (window_width, datacluster->data_out)*dy; // calculates pedestal 
 	  
-	  ncharge = 0.0;  
-	  variance = 0.0; 	   
+	    ncharge = 0.0;  
+	    variance = 0.0; 	   
 	    
-	  for(i=window_width; i < window_length; i++){ // calculates variance in second half of the window 
-	    voltage = ((float)datacluster->data_out[i]*dy-pedestal);
-	    variance = variance + voltage * voltage; 
+	    for(i=0; i < window_width; i++){ // calculates variance over window width 
+	      voltage = ((float)datacluster->data_out[i]*dy-pedestal);
+	      variance = variance + voltage * voltage; 
+	    }
+	    
+	    for(i = 2501; i < 2801; i++){ // signal window, hardcoded
+	      signal_voltage = ((float)datacluster->data_out[i]*dy-pedestal);
+	      ncharge = ncharge+(signal_voltage*((-1000.0*dx*1e9)/termination_ohms)); // charge 
+	    }  
+
+	    for(i=0; i < window_length; i++){ // entire window, build array for average waveform 
+	      window_voltage = ((float)datacluster->data_out[i]*dy-pedestal);  
+	      waveform_voltage[i] = waveform_voltage[i] + window_voltage; 
+	    }	   
+
+	    window_count++; // count traces 
+	  
+	    // fill histograms 
+	    charges_signal->Fill(ncharge); 
+	    variances->Fill(variance); 
+	    pedestals->Fill(pedestal);
 	  }
-	    
-	  // no variance cut, ie not cutting dark pulses from pedestal window. variance cut could be put in here if there is a concern about dark pulses.  
-
-	  for(i = window_width; i < window_width + 300 ; i++){ // signal window, hardcoded
-	    signal_voltage = ((float)datacluster->data_out[i]*dy-pedestal);
-	    ncharge = ncharge+(signal_voltage*((-1000.0*dx*1e9)/termination_ohms)); // charge 
-	  }  
-
-	  for(i=0; i < window_length; i++){ // entire window, build array for average waveform 
-	    window_voltage = ((float)datacluster->data_out[i]*dy-pedestal);  
-	    waveform_voltage[i] = waveform_voltage[i] + window_voltage; 
-	  }	   
-
-	  window_count++; // number of traces 
-	  
-	  // fill histograms 
-	  charges_signal->Fill(ncharge); 
-	  variances->Fill(variance); 
-	  pedestals->Fill(pedestal);
-	}
-	
-	file.close(); // close file 
-      }
-      ifs.close(); // close file stream 
+	  file.close(); // close file 
+        }
+        ifs.close(); // close file stream 
+      } // end channel loop
     
       // finds averge waveform 
       Float_t avg_waveform_voltage[length_trace];  
