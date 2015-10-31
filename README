@@ -1,1 +1,13 @@
-Loop through digitized waveforms, build charge and average waveform histograms. 
+Digitized waveforms from an oscilloscope Lecroy Waverunner 606Zi are written to 
+.hdf5 files using the lecrunch software package 
+(T. LaTorre: https://bitbucket.org/tlatorre/lecrunch). 
+
+The .hdf5 are opened and the attributes are read in. Then this code loops
+through the digitized waveforms, and builds charge and average waveform histograms. 
+
+Example use: 
+./calc_charge filename.txt histo.root 2000 channel1 
+
+Where filename.txt contains a list of .hdf5 for analysis, histo.root contains
+the output ROOT histograms, 2000 is the length of the pedestal window in time-bin 
+units, and channel1 is the oscilloscope channel to be processed. 
