@@ -60,7 +60,6 @@ int main (int argc, char* argv[])
     const unsigned long length_trace = 5002;
   
     try{
-
         // Attribute Variables
         Attribute horiz_interval;
         Attribute vertical_gain;
