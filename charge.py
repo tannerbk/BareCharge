@@ -7,13 +7,13 @@ canvas = None
 
 def read_hdf5(filename, channel,  debug=True):
     f = h5py.File(filename)
-    cchannel = f[channel]
-
-    samples = len(cchannel[0])
-    waveforms = len(cchannel)
-    termination_ohms = 50
-    dy = cchannel.attrs['vertical_gain']
-    dx = cchannel.attrs['horiz_interval']
+    channel = f[channel]
+    
+    samples = len(channel[0]) # samples per waveform 
+    waveforms = len(channel) # number of waveforms 
+    termination_ohms = 50 
+    dy = channel.attrs['vertical_gain'] # vertical resolution 
+    dx = channel.attrs['horiz_interval'] # time-bin
 
     global canvas
     if debug and canvas is None:
@@ -26,15 +26,18 @@ def read_hdf5(filename, channel,  debug=True):
     voltage = 0
     for i in range(0,waveforms):
         charge = 0
-        pedestal = np.mean(cchannel[i,:])*dy
+        pedestal = np.mean(channel[i,:])*dy
+        # Builds waveform 
         for j in range(0,samples):
-            voltage = cchannel[i,j]*dy - pedestal
+            voltage = channel[i,j]*dy - pedestal
             Waveform.SetBinContent(j+1,voltage)
             Waveform.SetBinError(j+1,dy)
+        # Hard coded signal window, use to intergrate PMT signal 
         for j in range(2800,3300):
-            voltage = cchannel[i,j]*dy - pedestal
+            voltage = channel[i,j]*dy - pedestal
             charge = charge+(voltage*((-1000*dx*1e9)/termination_ohms))
         Charge.Fill(charge)
+        # Debug mode prints waveforms to screen 
         if debug:
              print "Waveform",
              print i 
