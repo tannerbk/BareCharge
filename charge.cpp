@@ -5,6 +5,7 @@
 
 // Root Libraries
 #include <TFile.h>
+#include <TMath.h>
 #include <TCanvas.h>
 #include <TH1.h>
 #include <TROOT.h>
