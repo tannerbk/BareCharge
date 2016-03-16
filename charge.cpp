@@ -5,18 +5,10 @@
 
 // Root Libraries
 #include <TFile.h>
-#include <TMath.h>
-#include <TTree.h>
-#include <TSystem.h>
 #include <TCanvas.h>
-#include <TGraphErrors.h>
 #include <TH1.h>
-#include <TF1.h>
-#include <TH2.h>
 #include <TROOT.h>
-#include <TPaveStats.h>
 #include <TStyle.h>
-#include <TLine.h>
 
 // HDF5 Library
 #include "H5Cpp.h"
@@ -53,12 +45,15 @@ int Read_Trace(DataCluster *datacluster, unsigned long trace_index);
 name of output root file, size of pedestal window (in timebins),
 and channel number ***/
 int main (int argc, char* argv[])
-{
+{ 
+    // Window width: length of pedestal window
+    // channel: scope channel for data analysis 
     unsigned long window_width = atoi(argv[3]);
     string channel = argv[4];
-    const int termination_ohms = 50;
+    // Scope termination Ohms and hard-coded length of scope waveform
+    double termination_ohms = 50; 
     const unsigned long length_trace = 5002;
-  
+
     try{
         // Attribute Variables
         Attribute horiz_interval;
@@ -67,22 +62,24 @@ int main (int argc, char* argv[])
         Attribute vertical_offset;
         Attribute max_value;
         Attribute min_value;
-        
+
         // Attribute Value Variables
         double dx,dy,xoffset,yoffset;
         double Vmin, Vmax;
 
-        TH1F *pedestals = new TH1F("Pedestal","",5000,0.5,2);
+        // Histograms
+        // WARNING, binning and xaxis range set for scintillator data, not for SPE data
+        TH1F *pedestals = new TH1F("Pedestal","",5000,0.0,2);
         TH1F *variances = new TH1F("Variance","",5000,-0.1,1.0);
-        TH1F *charges_signal = new TH1F("Charge","",1250,-5.0,600.0);
+        TH1F *charges_signal = new TH1F("Charge","",1250,-5.0,600);
         TH1F *average_waveform = new TH1F("Average_Waveform","", length_trace, 0, length_trace*0.1);
                     
         unsigned long i;
         unsigned long j;
+        string filename;
+        H5File file;
+        DataSet dataset;
         unsigned int window_count = 0.0;
-        string filename; 
-        H5File file; 
-        DataSet dataset;   
         float waveform_voltage[length_trace] = {0};
 
         ifstream ifs (argv[1] , ifstream::in);
@@ -96,6 +93,7 @@ int main (int argc, char* argv[])
             ifs >> filename;
             dataset = file.openDataSet(channel);
 
+            // I don't use all these attributes, but they can be useful
             horiz_interval = dataset.openAttribute("horiz_interval");
             vertical_gain = dataset.openAttribute("vertical_gain");
             horiz_offset = dataset.openAttribute("horiz_offset");
@@ -108,8 +106,8 @@ int main (int argc, char* argv[])
             horiz_offset.read(PredType::NATIVE_DOUBLE, &xoffset);
             vertical_offset.read(PredType::NATIVE_DOUBLE, &yoffset);
             max_value.read(PredType::NATIVE_DOUBLE, &Vmax);
-            min_value.read(PredType::NATIVE_DOUBLE, &Vmin);
-            
+            min_value.read(PredType::NATIVE_DOUBLE, &Vmin); 
+ 
             DataCluster * datacluster = Init_Data(&dataset);
             unsigned long window_length = datacluster->trace_length;
             cout << " The time bin width is " << dx  << ", the trace length is " << window_length << ", the verticle resolution is " << dy << "." << endl;
@@ -138,14 +136,19 @@ int main (int argc, char* argv[])
               Read_Trace(datacluster,j);
               pedestal = TMath::Mean (window_width, datacluster->data_out)*dy;
               double window_length = datacluster->trace_length;
-              ncharge = 0.0;
-              variance = 0.0;
               
+              // Could use variance for cut on 'noisy pulses'
+              // Currently it is not used
+              variance = 0.0;
               for(i=0; i < window_width; i++){
                   voltage = ((float)datacluster->data_out[i]*dy-pedestal);
                   variance = variance + voltage * voltage;
               }
-              double signal_window = 1500;
+
+              // Hard-coded "signal window", probably want something between 
+              // 300 - 500 time-bins for single PE pulses
+              double signal_window = 1000; 
+              ncharge = 0.0;
               for(i = window_width; i < window_width + signal_window; i++){
                   signal_voltage = ((float)datacluster->data_out[i]*dy-pedestal);
                   ncharge+=(signal_voltage*((-1000.0*dx*1e9)/termination_ohms));
@@ -154,8 +157,10 @@ int main (int argc, char* argv[])
                   window_voltage = ((float)datacluster->data_out[i]*dy-pedestal);
                   waveform_voltage[i] = waveform_voltage[i] + window_voltage;
               }
+              // Count the traces
               window_count++;
 
+              // Fill our histograms
               charges_signal->Fill(ncharge);
               variances->Fill(variance);
               pedestals->Fill(pedestal);
@@ -171,19 +176,35 @@ int main (int argc, char* argv[])
           average_waveform->SetBinContent(i+1, avg_waveform_voltage[i]);
         }
 
+        // Integrate the charge distribution
+        // Fit commmented out
         TAxis *axis = charges_signal->GetXaxis();
-        double xmin = 0.0;
+        double xmin = 2.0; 
+        //double xint = 60.0; 
         double xmax = 600.0;
         int bmin = axis->FindBin(xmin);
+        //int bint = axis->FindBin(xint);
         int bmax = axis->FindBin(xmax);
+        //axis->SetRange(bmin,bmax);
+        //double max_bin = charges_signal->GetMaximumBin();
+        //double max_charge = axis->GetBinCenter(max_bin);
+        //double bottom_fit = max_charge*0.66;
+        //double top_fit = max_charge*1.5;
+        //charges_signal->Fit("gaus","","",bottom_fit,top_fit);
+        //TF1 *myfunc = charges_signal->GetFunction("gaus"); 
+        //double charge_peak = myfunc->GetParameter(1); 
         double x,y,integral = 0.0;
+        double entries = 0.0;
         for(int ii = bmin; ii < bmax; ii++){
            x = axis->GetBinCenter(ii);
            y = charges_signal->GetBinContent(ii);
            integral += x*y;
+           entries += y;
         }
-        cout << "Weighted integral of the charge histogram is " << integral << endl;
+        cout << "Weighted integral above " << xmin << "pC is " << integral << endl;
+        cout << "Entries above thesh. is " << entries << endl;
 
+        axis->SetRange();
         // Output Histograms to File
         if (argc > 2){
             TFile f(argv[2],"new");
@@ -192,10 +213,10 @@ int main (int argc, char* argv[])
             charges_signal->Write();
             average_waveform->Write();
         }
-
+        
         // clean-up
         delete pedestals;
-        delete variances; 
+        delete variances;
         delete charges_signal;
         delete average_waveform;
       } // end of try block
