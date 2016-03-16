@@ -8,6 +8,7 @@ import time
     that store the fully digitized
     scope waveform 
 '''
+# TO DO: improve speed
 
 canvas = None
 termination_ohms = 50 
