@@ -61,7 +61,7 @@ int Read_Trace(DataCluster *datacluster, unsigned long trace_index);
 double getVoltage(DataCluster *datacluster, double pedestal, double dy, int i);
 
 // Return the integrated charge over the signal window
-double getCharge(float window_width, float signal_window, DataCluster *datacluster,
+double getCharge(float pedestal_window, float signal_window, DataCluster *datacluster,
                  double pedestal, double dy, double dx);
 
 // Return the integral of the charge histogram above 5pc
@@ -75,7 +75,7 @@ const int termination_ohms = 50;
 int main (int argc, char* argv[])
 {
     /* User inputs */
-    float window_width = atoi(argv[3]); // pedestal window
+    float pedestal_window = atoi(argv[3]); // pedestal window
     float signal_window = atoi(argv[4]); // signal window
     string channel = argv[5]; // analysis channel
 
@@ -127,9 +127,9 @@ int main (int argc, char* argv[])
             cout << "Horizontal resolution:    " << dx << " ns" << endl;
             cout << "Verticle resolution:      " << dy << " V" << endl;
             cout << "Trace length:             " << window_length*dx*1e9 << " ns" << endl;
-            cout << "Pedestal window:          " << "0 -" << window_width*dx*1e9 << " ns"<< endl;
-            cout << "Integration window:       " << window_width*dx*1e9 << " - "
-                 << (window_width + signal_window)*dx*1e9 << " ns" << endl;
+            cout << "Pedestal window:          " << "0 -" << pedestal_window*dx*1e9 << " ns"<< endl;
+            cout << "Integration window:       " << pedestal_window*dx*1e9 << " - "
+                 << (pedestal_window + signal_window)*dx*1e9 << " ns" << endl;
 
             // Loop over every trace
             for (unsigned int j = 0; j < datacluster->n_traces; j++){
@@ -140,14 +140,14 @@ int main (int argc, char* argv[])
                 // Read in the data
                 Read_Trace(datacluster,j);
 
-                double pedestal = TMath::Mean (window_width, datacluster->data_out)*dy; // baseline
+                double pedestal = TMath::Mean (pedestal_window, datacluster->data_out)*dy; // baseline
                 unsigned int window_length = datacluster->trace_length; // trace length
 
                 if(j == 0){ // resize once
                     waveform_voltage.resize(window_length);
                 }
 
-                double charge = getCharge(window_width, signal_window, datacluster, pedestal, dy, dx);
+                double charge = getCharge(pedestal_window, signal_window, datacluster, pedestal, dy, dx);
 
                 for(unsigned int i = 0; i < window_length; i++){
                     waveform_voltage[i] += getVoltage(datacluster, pedestal, dy, i);
@@ -274,10 +274,11 @@ double getVoltage(DataCluster *datacluster, double pedestal, double dy, int i){
 }
 
 // Returns charge (pC) integrated over the signal window
-double getCharge(float window_width, float signal_window, DataCluster *datacluster,
+double getCharge(float pedestal_window, float signal_window, DataCluster *datacluster,
                  double pedestal, double dy, double dx){
     double charge = 0.0;
-    for(int i = window_width; i < window_width + signal_window; i++){
+    // Charge integration starts at the end of the pedestal window
+    for(int i = pedestal_window; i < pedestal_window + signal_window; i++){
         float voltage = ((float)datacluster->data_out[i]*dy-pedestal);
         charge+=(voltage*((-1000.0*dx*1e9)/termination_ohms)); // in pC
     }
