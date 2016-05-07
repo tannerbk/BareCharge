@@ -1,11 +1,11 @@
 Digitized waveforms from an oscilloscope Lecroy Waverunner 606Zi are written to .hdf5 files using the lecrunch software package 
 (T. LaTorre: https://bitbucket.org/tlatorre/lecrunch). 
 
-The .hdf5 are opened and the attributes are read in. Then this code loops through the digitized waveforms, and builds charge and average waveform histograms. 
-
+The .hdf5 are opened and the attributes are read in. Then this code loops through the digitized waveforms, and builds charge, pedestal, and average waveform histograms.
+ 
 Example use: 
-./calc_charge filename.txt histo.root 2000 channel1 
+./calc_charge filename.txt histo.root 2000 3000 channel1 
 
-Where filename.txt contains a list of .hdf5 for analysis, histo.root contains the output ROOT histograms, 2000 is the length of the pedestal window in time-bin units, and channel1 is the oscilloscope channel to be processed.
+Where filename.txt contains a list of .hdf5 for analysis, histo.root contains the output ROOT histograms, 2000 is the length of the pedestal window in time-bin units, 3000 is the length of the signal window integrated over to build the charge histogram (time-bin units), and channel1 is the oscilloscope channel to be processed.
 
 charge.py is a simple python script that has the same functionality, including a debugging option that prints the waveforms to the screen. 
