@@ -22,8 +22,6 @@
 #include <TMath.h>
 #include <TCanvas.h>
 #include <TH1.h>
-#include <TPaveStats.h>
-#include <TLatex.h>
 
 // HDF5 Library
 #include "H5Cpp.h"
@@ -57,12 +55,11 @@ DataCluster * Init_Data(DataSet *dataset);
 // For each trace, read in the dataset
 int Read_Trace(DataCluster *datacluster, unsigned long trace_index);
 
-// Return the voltage of the time-bin
+// Return the voltage of the sample
 double getVoltage(DataCluster *datacluster, double pedestal, double dy, int i);
 
 // Return the integrated charge over the signal window
-double getCharge(float pedestal_window, float signal_window, DataCluster *datacluster,
-                 double pedestal, double dy, double dx);
+double getCharge(float pedestal_window, float signal_window, DataCluster *datacluster, double pedestal, double dy, double dx);
 
 // Return the integral of the charge histogram above 5pc
 void chargeIntegral(TH1F* charges_signal);
@@ -74,12 +71,11 @@ const int termination_ohms = 50;
 
 int main (int argc, char* argv[])
 {
+
     /* User inputs */
     float pedestal_window = atoi(argv[3]); // pedestal window
     float signal_window = atoi(argv[4]); // signal window
     string channel = argv[5]; // analysis channel
-
-    std::vector<float> waveform_voltage;
 
     try{
 
@@ -89,12 +85,22 @@ int main (int argc, char* argv[])
 
         // Variables for time binning and veritcal resolution
         double dx,dy;
+ 
+        // Variables for avg wfm histogram
         float trace_count = 0.0;
+        std::vector<float> waveform_voltage;
 
         // ROOT histograms
         TH1F *pedestals = new TH1F("Pedestal","",5000,0.0,2);
+        // This is the binning for scintillator data
         TH1F *charges_signal = new TH1F("Charge","",1250,-5.0,600);
 
+        /// Re-bin for spe data
+        if(signal_window < 1000){
+            charges_signal->SetBins(500,-2.0,40);
+        }
+
+        // For reading in data
         string filename;
         H5File file;
         DataSet dataset;
@@ -116,18 +122,19 @@ int main (int argc, char* argv[])
             horiz_interval.read(PredType::NATIVE_DOUBLE, &dx);
             vertical_gain.read(PredType::NATIVE_DOUBLE, &dy);
 
+            // Initialize the datacluster
             DataCluster * datacluster = Init_Data(&dataset);
+
             unsigned long window_length = datacluster->trace_length;
 
             cout << "Analyzing file:           "  << filename << endl;
-
             // Print the waveform parameters to screen
-            cout << "Waveform parameters for   " << channel << endl;
+            cout << "Waveform parameters for:  " << channel << endl;
             cout << " * * * * * * * * * * * * * * * * * * * " << endl;
             cout << "Horizontal resolution:    " << dx << " ns" << endl;
             cout << "Verticle resolution:      " << dy << " V" << endl;
             cout << "Trace length:             " << window_length*dx*1e9 << " ns" << endl;
-            cout << "Pedestal window:          " << "0 -" << pedestal_window*dx*1e9 << " ns"<< endl;
+            cout << "Pedestal window:          " << "0 - " << pedestal_window*dx*1e9 << " ns"<< endl;
             cout << "Integration window:       " << pedestal_window*dx*1e9 << " - "
                  << (pedestal_window + signal_window)*dx*1e9 << " ns" << endl;
 
@@ -140,25 +147,28 @@ int main (int argc, char* argv[])
                 // Read in the data
                 Read_Trace(datacluster,j);
 
-                double pedestal = TMath::Mean (pedestal_window, datacluster->data_out)*dy; // baseline
+                double pedestal = TMath::Mean (pedestal_window, datacluster->data_out)*dy; // baseline (V)
                 unsigned int window_length = datacluster->trace_length; // trace length
 
                 if(j == 0){ // resize once
                     waveform_voltage.resize(window_length);
                 }
 
+                // charge and pulse height
                 double charge = getCharge(pedestal_window, signal_window, datacluster, pedestal, dy, dx);
 
+                // build waveform for debugging and avg wvm array
                 for(unsigned int i = 0; i < window_length; i++){
                     waveform_voltage[i] += getVoltage(datacluster, pedestal, dy, i);
                 }
-
+                
                 charges_signal->Fill(charge);
                 pedestals->Fill(pedestal);
+
                 trace_count++;
             }
 
-            file.close();
+            file.close(); // close hdf5 file
         }
 
         ifs.close(); // close file stream
@@ -267,34 +277,32 @@ int Read_Trace(DataCluster *datacluster, unsigned long trace_index){
     return 0;
 }
 
-// Returns voltage of the time-bin
+// Returns voltage of the sample
 double getVoltage(DataCluster *datacluster, double pedestal, double dy, int i){
+
     float voltage = ((float)datacluster->data_out[i]*dy-pedestal);
     return voltage;
 }
 
 // Returns charge (pC) integrated over the signal window
-double getCharge(float pedestal_window, float signal_window, DataCluster *datacluster,
-                 double pedestal, double dy, double dx){
+double getCharge(float pedestal_window, float signal_window, DataCluster *datacluster, double pedestal, double dy, double dx){
+
     double charge = 0.0;
     // Charge integration starts at the end of the pedestal window
     for(int i = pedestal_window; i < pedestal_window + signal_window; i++){
         float voltage = ((float)datacluster->data_out[i]*dy-pedestal);
         charge+=(voltage*((-1000.0*dx*1e9)/termination_ohms)); // in pC
     }
-
     return charge;
 }
 
 // Charge-weighted integral of the charge histogram
 void chargeIntegral(TH1F* charges_signal){
 
-    TAxis *axis = charges_signal->GetXaxis();
-
     // Integration range
+    TAxis *axis = charges_signal->GetXaxis();
     int bmin = axis->FindBin(5.0);
     int bmax = axis->FindBin(600.0);
-
     double x,y,integral = 0.0;
 
     // Charge-weighted integral of charge histogram
@@ -310,7 +318,6 @@ void chargeIntegral(TH1F* charges_signal){
     TCanvas *c = new TCanvas;
     charges_signal->Draw();
     c->Update();
-
 }
 
 // Beautify charge plot
@@ -325,6 +332,5 @@ void prettyPlot(TH1F* h){
     yaxis->SetLabelFont(132);
     yaxis->SetTitle("Traces");
     h->SetLineColor(kBlack);
-
 }
 
