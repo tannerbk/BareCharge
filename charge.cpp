@@ -67,10 +67,21 @@ void chargeIntegral(TH1F* charges_signal);
 // Beautify charge plot
 void prettyPlot(TH1F* h);
 
+void printHelp();
+
 const int termination_ohms = 50;
 
 int main (int argc, char* argv[])
 {
+
+    if(argc==2 && strcmp(argv[1],"-h")==0){
+        printHelp();
+        return 0;
+    }
+    else if(argc < 6){
+        cout << "Invalid command, use -h for help." << endl;
+        return 0;
+    }
 
     /* User inputs */
     float pedestal_window = atoi(argv[3]); // pedestal window
@@ -127,6 +138,7 @@ int main (int argc, char* argv[])
 
             unsigned long window_length = datacluster->trace_length;
 
+            cout << "-------------------------------------------------------" << endl;
             cout << "Analyzing file:           "  << filename << endl;
             // Print the waveform parameters to screen
             cout << "Waveform parameters for:  " << channel << endl;
@@ -137,6 +149,7 @@ int main (int argc, char* argv[])
             cout << "Pedestal window:          " << "0 - " << pedestal_window*dx*1e9 << " ns"<< endl;
             cout << "Integration window:       " << pedestal_window*dx*1e9 << " - "
                  << (pedestal_window + signal_window)*dx*1e9 << " ns" << endl;
+            cout << "-------------------------------------------------------" << endl;
 
             // Loop over every trace
             for (unsigned int j = 0; j < datacluster->n_traces; j++){
@@ -154,12 +167,12 @@ int main (int argc, char* argv[])
                     waveform_voltage.resize(window_length);
                 }
 
-                // charge and pulse height
+                // integrated charge (pC) 
                 double charge = getCharge(pedestal_window, signal_window, datacluster, pedestal, dy, dx);
 
                 // build waveform for debugging and avg wvm array
                 for(unsigned int i = 0; i < window_length; i++){
-                    waveform_voltage[i] += getVoltage(datacluster, pedestal, dy, i);
+                    waveform_voltage.at(i) += getVoltage(datacluster, pedestal, dy, i);
                 }
                 
                 charges_signal->Fill(charge);
@@ -178,9 +191,11 @@ int main (int argc, char* argv[])
         for(unsigned int i = 0; i < waveform_voltage.size(); i++){
             avg_wfm->SetBinContent(i, waveform_voltage[i]/trace_count);
         }
-
-        chargeIntegral(charges_signal);
-        prettyPlot(charges_signal);
+         
+        if(signal_window > 1000){
+           chargeIntegral(charges_signal);
+           prettyPlot(charges_signal);
+        }
 
         // Output Histograms to File
         if (argc > 2){
@@ -297,24 +312,33 @@ double getCharge(float pedestal_window, float signal_window, DataCluster *datacl
 }
 
 // Charge-weighted integral of the charge histogram
+// Compare against LAB+PPO standard
 void chargeIntegral(TH1F* charges_signal){
+
+    const float lab_ppo_ly = 1.99509e+07; 
 
     // Integration range
     TAxis *axis = charges_signal->GetXaxis();
     int bmin = axis->FindBin(5.0);
     int bmax = axis->FindBin(600.0);
-    double x,y,integral = 0.0;
+    double x=0.0,y=0.0,err=0.0,integral=0.0,terror=0.0;
 
     // Charge-weighted integral of charge histogram
     for(int i = bmin; i < bmax; i++){
         x = axis->GetBinCenter(i);
         y = charges_signal->GetBinContent(i);
+        err = charges_signal->GetBinError(i);
         integral += x*y;
+        terror += x*err; 
     }
 
     // Print the integral of the charge distribtuion above some noise threshold
+    cout << endl;
+    cout << "-------------------------------------------------------" << endl;
     cout << "Weighted integral above " << 5.0 << "pC is " << integral << endl;
-
+    cout << "Relative light yield is: " << integral/lab_ppo_ly << " +/- " << terror/lab_ppo_ly << endl;
+    cout << "-------------------------------------------------------" << endl;
+ 
     TCanvas *c = new TCanvas;
     charges_signal->Draw();
     c->Update();
@@ -334,3 +358,11 @@ void prettyPlot(TH1F* h){
     h->SetLineColor(kBlack);
 }
 
+void printHelp(){
+    cout << "Command lines arguments (all are required):" << endl;
+    cout << "[1] Text file listing .hdf5 files for analysis." << endl;
+    cout << "[2] Output root file." << endl;
+    cout << "[3] Pedestal window length, in samples." << endl;
+    cout << "[4] Integration winodw length, in samples." << endl;
+    cout << "[5] Name of channel to analyze." << endl;
+}
