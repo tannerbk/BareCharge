@@ -50,10 +50,10 @@ def plot(filename):
 
 def charge_geometry(waveform_number, q, channel_number):
     
-    Color = q/(50*1.6)
+    Color = q/(40*1.6)
  
     # probably should use Colormap.Normalize
-    if q/(50*1.6) > 1.0:
+    if q/(40*1.6) > 1.0:
         Color = 1.0
     if q < 0.0:
         Color = 0.0
@@ -65,7 +65,7 @@ def charge_geometry(waveform_number, q, channel_number):
         fig = plt.figure(figsize=(10,10))
         ax1 = fig.add_axes([0.05, 0.95, 0.9, 0.15])
         cmap = mpl.cm.jet
-        norm = colors.Normalize(vmin = 0, vmax = 35)
+        norm = colors.Normalize(vmin = 0, vmax = 40)
         cb1 = mpl.colorbar.ColorbarBase(ax1,cmap=cmap,norm=norm,orientation='horizontal')
         cb1.set_label('Number of Photons')
         ax2 = fig.add_axes([0.05, 0.1, 0.9, 0.75])
@@ -76,7 +76,7 @@ def charge_geometry(waveform_number, q, channel_number):
         fig = plt.gcf()
     
     print "PE:",
-    print q/1.6
+    print Color*40
     
     # channels displayed as:
     #       ch2
@@ -85,25 +85,21 @@ def charge_geometry(waveform_number, q, channel_number):
     if channel_number == 1:
         w1 = Wedge((0.82,0.5),0.12,90,270,color=(r,g,b))
         r1 = Rectangle((0.82,0.45),0.1,0.1,color=(r,g,b))
-        #pmt1=plt.Circle((0.82,0.5),.12,color=(r,g,b))
         fig.gca().add_artist(w1) 
         fig.gca().add_artist(r1) 
     if channel_number == 2:
         w2 = Wedge((0.5,0.82),0.12,180,0,color=(r,g,b))
         r2 = Rectangle((0.45,0.82),0.1,0.1,color=(r,g,b))
-        #pmt2=plt.Circle((0.5,0.82),.12,color=(r,g,b))
         fig.gca().add_artist(w2)
         fig.gca().add_artist(r2)
     if channel_number == 3:
         w3 = Wedge((0.18,0.5),0.12,270,90,color=(r,g,b)) 
         r3 = Rectangle((0.08,0.45),0.1,0.1,color=(r,g,b))
-        #pmt3=plt.Circle((0.18,0.5),.12,color=(r,g,b))
         fig.gca().add_artist(w3)
         fig.gca().add_artist(r3)
     if channel_number == 4:
         w4 = Wedge((0.5,0.18),0.12,0,180,color=(r,g,b))
         r4 = Rectangle((0.45,0.08),0.1,0.1,color=(r,g,b))
-        #pmt4=plt.Circle((0.5,0.18),.12,color=(r,g,b))
         fig.gca().add_artist(w4)
         fig.gca().add_artist(r4)
         fig.show()
