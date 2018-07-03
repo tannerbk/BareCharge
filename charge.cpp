@@ -132,8 +132,8 @@ int main (int argc, char* argv[])
             unsigned long window_length = datacluster->trace_length;
 
             /* User inputs */
-            float pedestal_window = atoi(argv[3])/(dx*1e9); // pedestal window
-            float signal_window = atoi(argv[4])/(dx*1e9); // signal window
+            float pedestal_window = atoi(argv[3]); // pedestal window
+            float signal_window = atoi(argv[4]); // signal window
 
             cout << "-------------------------------------------------------" << endl;
             cout << "Analyzing file:           "  << filename << endl;
@@ -143,9 +143,12 @@ int main (int argc, char* argv[])
             cout << "Horizontal resolution:    " << dx << " ns" << endl;
             cout << "Verticle resolution:      " << dy << " V" << endl;
             cout << "Trace length:             " << window_length*dx*1e9 << " ns" << endl;
-            cout << "Pedestal window:          " << "0 - " << pedestal_window << " ns"<< endl;
+            cout << "Pedestal window:          " << "0 - " << pedestal_window << " ns, " 
+                 << "or 0 - " << pedestal_window/(dx*1e9) << " samples." << endl;
             cout << "Integration window:       " << pedestal_window << " - "
-                 << (pedestal_window + signal_window) << " ns" << endl;
+                 << (pedestal_window + signal_window) << " ns, "
+                 << "or " << pedestal_window/(dx*1e9) << " - "
+                 << (pedestal_window + signal_window)/(dx*1e9)  << " samples." << endl;
             cout << "-------------------------------------------------------" << endl;
 
 
@@ -300,7 +303,7 @@ double getCharge(float pedestal_window, float signal_window, DataCluster *datacl
 
     double charge = 0.0;
     // Charge integration starts at the end of the pedestal window
-    for(int i = pedestal_window*dx*1e9; i < (pedestal_window + signal_window)*dx*1e9; i++){
+    for(int i = pedestal_window/(dx*1e9); i < (pedestal_window + signal_window)/(dx*1e9); i++){
         float voltage = ((float)datacluster->data_out[i]*dy-pedestal);
         charge+=(voltage*((-1000.0*dx*1e9)/termination_ohms)); // in pC
     }
