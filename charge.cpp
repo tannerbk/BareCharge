@@ -104,7 +104,7 @@ int main (int argc, char* argv[])
         // ROOT histograms
         TH1F *pedestals = new TH1F("Pedestal","",5000,0.0,2);
         // This is the binning for scintillator data
-        TH1F *charges_signal = new TH1F("Charge","",1250,-5.0,600);
+        TH1F *charges_signal = new TH1F("Charge","",700,-5.0,800);
 
         /// Re-bin for spe data
         if(signal_window < 1000){
@@ -119,6 +119,7 @@ int main (int argc, char* argv[])
         // Load in the datafiles from a txt file
         ifstream ifs (argv[1] , ifstream::in);
         ifs >> filename;
+
 
         while (ifs.good()){
 
@@ -150,6 +151,7 @@ int main (int argc, char* argv[])
             cout << "Integration window:       " << pedestal_window*dx*1e9 << " - "
                  << (pedestal_window + signal_window)*dx*1e9 << " ns" << endl;
             cout << "-------------------------------------------------------" << endl;
+
 
             // Loop over every trace
             for (unsigned int j = 0; j < datacluster->n_traces; j++){
@@ -315,19 +317,28 @@ double getCharge(float pedestal_window, float signal_window, DataCluster *datacl
 // Compare against LAB+PPO standard
 void chargeIntegral(TH1F* charges_signal){
 
+    bool degassed = false;
+
+    // Degassed light yield
     const float lab_ppo_ly = 1.99509e+07; 
+    //const float lab_ppo_ly = 1.83045e+07;
 
     // Integration range
     TAxis *axis = charges_signal->GetXaxis();
     int bmin = axis->FindBin(5.0);
-    int bmax = axis->FindBin(600.0);
+    int bmax = axis->FindBin(800.0);
     double x=0.0,y=0.0,err=0.0,integral=0.0,terror=0.0;
+    double endpoint = 0.0;
+    double bin_content_end = 10.0;
 
     // Charge-weighted integral of charge histogram
     for(int i = bmin; i < bmax; i++){
         x = axis->GetBinCenter(i);
         y = charges_signal->GetBinContent(i);
         err = charges_signal->GetBinError(i);
+        if(y >= bin_content_end){
+          endpoint = x;
+        }
         integral += x*y;
         terror += x*err; 
     }
@@ -335,7 +346,14 @@ void chargeIntegral(TH1F* charges_signal){
     // Print the integral of the charge distribtuion above some noise threshold
     cout << endl;
     cout << "-------------------------------------------------------" << endl;
+    if(degassed){
+      cout << "Comparing to degassed scintillator light yield." << endl;
+    }
+    else{
+      cout << "Comparing to gassed scintillator light yield." << endl;
+    }
     cout << "Weighted integral above " << 5.0 << "pC is " << integral << endl;
+    cout << "End point (last bin with content > " << bin_content_end << ") is " << endpoint << " pC " << endl;
     cout << "Relative light yield is: " << integral/lab_ppo_ly << " +/- " << terror/lab_ppo_ly << endl;
     cout << "-------------------------------------------------------" << endl;
  
@@ -354,7 +372,7 @@ void prettyPlot(TH1F* h){
     xaxis->SetTitle("Charge (pC)");
     yaxis->SetTitleFont(132);
     yaxis->SetLabelFont(132);
-    yaxis->SetTitle("Traces");
+    yaxis->SetTitle("Counts");
     h->SetLineColor(kBlack);
 }
 
