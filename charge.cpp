@@ -83,12 +83,9 @@ int main (int argc, char* argv[])
         return 0;
     }
 
-    /* User inputs */
-    float pedestal_window = atoi(argv[3]); // pedestal window
-    float signal_window = atoi(argv[4]); // signal window
-    string channel = argv[5]; // analysis channel
-
     try{
+
+        string channel = argv[5]; // analysis channel
 
         // Attribute Variables
         Attribute horiz_interval;
@@ -105,11 +102,6 @@ int main (int argc, char* argv[])
         TH1F *pedestals = new TH1F("Pedestal","",5000,0.0,2);
         // This is the binning for scintillator data
         TH1F *charges_signal = new TH1F("Charge","",700,-5.0,800);
-
-        /// Re-bin for spe data
-        if(signal_window < 1000){
-            charges_signal->SetBins(500,-2.0,40);
-        }
 
         // For reading in data
         string filename;
@@ -139,6 +131,10 @@ int main (int argc, char* argv[])
 
             unsigned long window_length = datacluster->trace_length;
 
+            /* User inputs */
+            float pedestal_window = atoi(argv[3])/(dx*1e9); // pedestal window
+            float signal_window = atoi(argv[4])/(dx*1e9); // signal window
+
             cout << "-------------------------------------------------------" << endl;
             cout << "Analyzing file:           "  << filename << endl;
             // Print the waveform parameters to screen
@@ -147,9 +143,9 @@ int main (int argc, char* argv[])
             cout << "Horizontal resolution:    " << dx << " ns" << endl;
             cout << "Verticle resolution:      " << dy << " V" << endl;
             cout << "Trace length:             " << window_length*dx*1e9 << " ns" << endl;
-            cout << "Pedestal window:          " << "0 - " << pedestal_window*dx*1e9 << " ns"<< endl;
-            cout << "Integration window:       " << pedestal_window*dx*1e9 << " - "
-                 << (pedestal_window + signal_window)*dx*1e9 << " ns" << endl;
+            cout << "Pedestal window:          " << "0 - " << pedestal_window << " ns"<< endl;
+            cout << "Integration window:       " << pedestal_window << " - "
+                 << (pedestal_window + signal_window) << " ns" << endl;
             cout << "-------------------------------------------------------" << endl;
 
 
@@ -194,10 +190,8 @@ int main (int argc, char* argv[])
             avg_wfm->SetBinContent(i, waveform_voltage[i]/trace_count);
         }
          
-        if(signal_window > 1000){
-           chargeIntegral(charges_signal);
-           prettyPlot(charges_signal);
-        }
+        chargeIntegral(charges_signal);
+        prettyPlot(charges_signal);
 
         // Output Histograms to File
         if (argc > 2){
@@ -306,7 +300,7 @@ double getCharge(float pedestal_window, float signal_window, DataCluster *datacl
 
     double charge = 0.0;
     // Charge integration starts at the end of the pedestal window
-    for(int i = pedestal_window; i < pedestal_window + signal_window; i++){
+    for(int i = pedestal_window*dx*1e9; i < (pedestal_window + signal_window)*dx*1e9; i++){
         float voltage = ((float)datacluster->data_out[i]*dy-pedestal);
         charge+=(voltage*((-1000.0*dx*1e9)/termination_ohms)); // in pC
     }
